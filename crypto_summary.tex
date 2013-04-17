@@ -1,0 +1,61 @@
+
+\section{Overview}
+
+The paper \emph{UMAC: Fast and Secure Message Authentication} discusses a
+variants on Message Authentications Codes that are based primarily on the
+principal of Universal Hashing. The paper then proves both the security of the
+underlying algorithm, with respect to current existing cryptographic
+primatives.
+
+As the title of the paper suggests, the primary advantage of using UMAC over
+other schemes such as HMAC is the performance. UMAC is extremely fast and is
+inherently parallellisable and therefore can be performed extremely quickly on
+ multicore processes. The reason that I opted to summarise this paper is
+ because the performance of algorithms is not an area that has been discussed
+ heavily, but when it comes to real world deployment this is, easily, the
+ second most important concern (after the security of the scheme itself).
+
+ \section{Primitives}
+
+ \subsection{Universal hashing}
+
+ The paper relies of the principal of universal hashing in order to compress
+ the message before signing. Universal hashing is a different approach to
+ other hashing methods in that instead of considering a single hash function
+ (keyed or unkeyed), we have a large familiy of possible hash functions and
+ one of these is then chosen (either at random or by some mapping of keys) and
+ used by the algorithm.
+
+ Before we continue with universal hashing there is one key notion that we
+ must be familiar with, the concept of an $\eta -universal$ hash family.
+ Informally, a family is said to be $\eta -universal$ if for any pair fo
+ distinct message, the probability that they collide is at most $\eta$ if the
+ hash function used to hash each message is chosen randomly from the set of
+ hash functions.
+ %TODO Formal definition / proof here?
+
+ %TODO Explain why we picked UH? Do it here?
+
+ %TODO Look up the combinatorial property of universal hashing
+
+ %TODO Talk about how fast UH means a strong encryption can be chosen for
+ %encrypt step.
+
+ In the paper, the universal hashing family of choice is known as NH hashing.
+ It is a simplification of the NMH and MMH families
+ %TODO Lookup these and talk about them
+ The principal of NH is described in \ref{equ:nh}
+\begin{algorithm}
+$\left( NH_k(m) = \sum^{t/2}_{i=1} \left( \left( \left( m_{2i-1} + k_{2i-1} \right) mod 2^w
+\right) \cdot \left( \left( m_{2i} + k_{2i} \right) od 2^w \right) \right)
+\right) mod 2^{2w}$
+\label{eqn:nh}
+\end{algorithm}
+
+The algorithm defines a word size ($w$), usually 16 or 32 bits to exploit fast
+modulo operations in hardware. We then represent the message M as an even
+number of $w-bit$ blocks.
+
+$M = (m_1,\cdots,m_l)\ where\ m_i \in {0,\cdots,2^w-1}$
+
+
