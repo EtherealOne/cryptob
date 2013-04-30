@@ -1,4 +1,63 @@
 
+\documentclass[11pt]{article} % use larger type; default would be 10pt
+
+%% Use newline instead of indent for new paragraphs.
+
+%%% PAGE DIMENSIONS
+\usepackage{rotating}
+\usepackage{times}
+\usepackage{geometry} % to change the page dimensions
+\geometry{a4paper} % or letterpaper (US) or a5paper or....
+\geometry{margin = 2.0cm} % for example, change the margins to 2 inches all round
+\geometry{top=2.0cm}
+% \geometry{landscape} % set up the page for landscape
+% read geometry.pdf for detailed page layout information
+
+%\usepackage{graphicx} % support the \includegraphics command and options
+\usepackage[parfill]{parskip} % Activate to begin paragraphs with an empty line rather than an indent
+%%%% TIKZ Info
+\usepackage[latin1]{inputenc}
+\usepackage{url}
+\usepackage{float}
+
+%%% PACKAGES
+\usepackage{booktabs} % for much better looking tables
+\usepackage{array} % for better arrays (eg matrices) in maths
+\usepackage{paralist} % very flexible & customisable lists (eg. enumerate/itemize, etc.)
+\usepackage{verbatim} % adds environment for commenting out blocks of text & for better verbatim
+\usepackage{subfig} % make it possible to include more than one captioned figure/table in a single float
+% These packages are all incorporated in the memoir class to one degree or another...
+
+%%% HEADERS & FOOTERS
+\usepackage{fancyhdr} % This should be set AFTER setting up the page geometry
+\pagestyle{fancy} % options: empty , plain , fancy
+\renewcommand{\headrulewidth}{1pt} % customise the layout...
+\lhead{Coursework 1}\chead{Max Robinson}\rhead{8th December 2011}
+\lfoot{}\cfoot{\thepage}\rfoot{}
+
+%%% SECTION TITLE APPEARANCE
+\usepackage{sectsty}
+\allsectionsfont{\sffamily\mdseries\upshape} % (See the fntguide.pdf for font help)
+\sectionfont{\large}
+\subsectionfont{\small}
+\subsubsectionfont{\small}
+% (This matches ConTeXt defaults)
+
+%%% ToC (table of contents) APPEARANCE
+\usepackage[nottoc,notlof,notlot]{tocbibind} % Put the bibliography in the ToC
+\usepackage[titles,subfigure]{tocloft} % Alter the style of the Table of Contents
+\renewcommand{\cftsecfont}{\rmfamily\mdseries\upshape}
+\renewcommand{\cftsecpagefont}{\rmfamily\mdseries\upshape} % No bold!
+
+
+
+\title{Cryptography B: Coursework}
+\author{Max Robinson \and G403 \and mr9388@bris.ac.uk}
+%\date{} % Activate to display a given date or no date (if empty),
+% otherwise the current date is printed
+
+\begin{document}
+\maketitle 
 \section{Overview}
 
 The paper \emph{UMAC: Fast and Secure Message Authentication} discusses a
@@ -27,13 +86,18 @@ inherently parallellisable and therefore can be performed extremely quickly on
  used by the algorithm.
 
  Before we continue with universal hashing there is one key notion that we
- must be familiar with, the concept of an $\eta -universal$ hash family.
- Informally, a family is said to be $\eta -universal$ if for any pair fo
- distinct message, the probability that they collide is at most $\eta$ if the
+ must be familiar with, the concept of an $\epsilon$-almost universal hash family.
+ The definition is given in Equation \ref{eqn:e-universal}
+ Informally, a family is said to be $\epsilon$-almost-universal if for any pair
+ of  distinct message, the probability that they collide is at most $\eta$ if the
  hash function used to hash each message is chosen randomly from the set of
  hash functions.
  %TODO Formal definition / proof here?
-
+$Let\ H = \{h: A \rightarrow B\}, \epsilon > 0$
+\begin{equation}
+ Pr[h(M) = h(M')] \leq \epsilon\ \forall M \neq M' \in A,\forall h \in H
+\label{eqn:e-universal}
+\end{equation}
  %TODO Explain why we picked UH? Do it here?
 
  %TODO Look up the combinatorial property of universal hashing
@@ -44,18 +108,62 @@ inherently parallellisable and therefore can be performed extremely quickly on
  In the paper, the universal hashing family of choice is known as NH hashing.
  It is a simplification of the NMH and MMH families
  %TODO Lookup these and talk about them
- The principal of NH is described in \ref{equ:nh}
-\begin{algorithm}
-$\left( NH_k(m) = \sum^{t/2}_{i=1} \left( \left( \left( m_{2i-1} + k_{2i-1} \right) mod 2^w
-\right) \cdot \left( \left( m_{2i} + k_{2i} \right) od 2^w \right) \right)
-\right) mod 2^{2w}$
-\label{eqn:nh}
-\end{algorithm}
+ The principal of NH is described in Equation \ref{eqn:nh}
+\begin{equation} \label{eqn:nh}
+NH_k(m) = \left( \sum^{l/2}_{i=1} \left( \left( \left( m_{2i-1} + k_{2i-1}
+\right)\ mod\ 2^w
+\right) \cdot \left( \left( m_{2i} + k_{2i} \right)\ mod\ 2^w \right) \right)
+\right) mod\ 2^{2w}
+\end{equation}
 
 The algorithm defines a word size ($w$), usually 16 or 32 bits to exploit fast
 modulo operations in hardware. We then represent the message M as an even
 number of $w-bit$ blocks.
+,$M = (m_1,\cdots,m_l)$ where $m_i \in {0,\cdots,2^w-1}$, we also have a key,
+$k$ with length $n
+\geq l$. In essence, for each pair of blocks in M, both blocks are added to
+the corresponding key (the answers are returned modulo the maximum word value)
+then multiplied together. The result of this is then summed for each pair of
+blocks and the result is returned modulo the maximum word size squared. This
+means each hash is at most $2w$ bits long. 
 
-$M = (m_1,\cdots,m_l)\ where\ m_i \in {0,\cdots,2^w-1}$
+The MMH family is similar by uses finite fields over a prime, $p$, and any
+integer $k > 0$, such that for any 
+\begin{equation} \label{eqn:mmh}
+MMH = {g_x : Z^k_p \rightarrow Z_p | x \in Z^k_p}\\
+g_x(m) = m \cdot x\ mod\ p\
+\end{equation}.
 
+\section{UMAC}
 
+The UMAC protocol requires a pseudo-random generation (PRG), a shared secret
+key and the ability to generate a nonce (can be a simple counter i.e. the
+sender must be stateful).
+
+\subsection{Key generation}
+
+The construction of the NH family requires a key that is at least as long as
+the message, since sharing a key like this would be impractical for large
+messages, instead the PRG is used to generate this key to get: $K =
+K_1K_2\cdots K_{1024}$ for $K_i \in \{0 \cdots 1\}^{32}$.
+
+An additional key $A$ is also generated for $|A|=512$ to be used to key the
+SHA1 used in Step %TODO
+
+This key generation is likely expensive and therefore the two keys are only
+generated at the start of the sesion then reused.
+
+\subsection{Hashing}
+The generating of the Tag takes place is two steps, hashing and tagging. The
+hash step works as follows
+\begin{itemize}
+\item Let Len be $|Msg|$ mod 4096
+\item Pad $Msg$ with 0 bits such that $|Msg|\ mod\ 8 \equiv 0$
+\item Let $Msg=Msg_1||Msg_2||\cdots||Msg_t$ where $|Msg|$ is 1024 words (except
+for $Msg_t$)
+\item $HM = NH_K(Msg_1)||NH_K(Msg_2)||\cdots||NH_K(Msg_t)||Len$
+\end{itemize}
+The NH function is used in a way that is similar to that of a block cipher.
+With each ``block'' of HM independent of the blocks on either side. 
+
+\end{document}
