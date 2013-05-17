@@ -1,5 +1,5 @@
 
-\documentclass[11pt]{article} % use larger type; default would be 10pt
+\documentclass[10pt]{article} % use larger type; default would be 10pt
 
 %% Use newline instead of indent for new paragraphs.
 
@@ -38,6 +38,7 @@
 %%% SECTION TITLE APPEARANCE
 \usepackage{sectsty}
 \allsectionsfont{\sffamily\mdseries\upshape} % (See the fntguide.pdf for font help)
+\paragraphfont{\sffamily\mdseries\upshape\bfseries\small} % (See the fntguide.pdf for font help)
 \sectionfont{\large}
 \subsectionfont{\small}
 \subsubsectionfont{\small}
@@ -60,66 +61,111 @@
 \maketitle 
 \section{Overview}
 
-The paper \emph{UMAC: Fast and Secure Message Authentication} discusses a
-variants on Message Authentications Codes that are based primarily on the
+The paper \emph{UMAC: Fast and Secure Message Authentication}\cite{umac} discusses a
+variant on Message Authentications Codes that are based the
 principal of Universal Hashing. The paper then proves both the security of the
-underlying algorithm, with respect to current existing cryptographic
-primatives.
+underlying algorithm with respect to current existing cryptographic
+primitives.
 
 As the title of the paper suggests, the primary advantage of using UMAC over
-other schemes such as HMAC is the performance. UMAC is extremely fast and is
-inherently parallellisable and therefore can be performed extremely quickly on
+other schemes such as HMAC is the performance. UMAC is extremely fast with good
+potential for parallelisation and therefore can be performed extremely quickly on
  multicore processes. The reason that I opted to summarise this paper is
- because the performance of algorithms is not an area that has been discussed
- heavily, but when it comes to real world deployment this is, easily, the
- second most important concern (after the security of the scheme itself).
+because the performance of algorithms is not an area that has been discussed
+heavily, but when it comes to real world deployment this is one of the primary
+concerns (after the security of the scheme itself).
 
- \section{Primitives}
+The reason that universal hashing is so fast is that the hash function used is
+not designed to be secure. This is counter intuitive for a security scheme but
+the hash function is used to compress the incoming message so that a secure,
+but slower, scheme can be applied to this digest to provide the final output.
+This summary looks at some of the keys aspects of the UMAC approach and then
+concludes with an evaluation of the approach.
 
- \subsection{Universal hashing}
+\section{Universal hashing}
 
- The paper relies of the principal of universal hashing in order to compress
- the message before signing. Universal hashing is a different approach to
- other hashing methods in that instead of considering a single hash function
- (keyed or unkeyed), we have a large familiy of possible hash functions and
- one of these is then chosen (either at random or by some mapping of keys) and
- used by the algorithm.
+The paper relies of the principal of universal hashing in order to compress the
+message before signing. With universal hashing instead of considering a single
+hash function (keyed or unkeyed), we have a large family of possible hash
+functions and one of these is then chosen (either at random or by some mapping
+of keys) and used by the algorithm.
 
- Before we continue with universal hashing there is one key notion that we
- must be familiar with, the concept of an $\epsilon$-almost universal hash family.
- The definition is given in Equation \ref{eqn:e-universal}
- Informally, a family is said to be $\epsilon$-almost-universal if for any pair
- of  distinct message, the probability that they collide is at most $\eta$ if the
- hash function used to hash each message is chosen randomly from the set of
- hash functions.
- %TODO Formal definition / proof here?
-$Let\ H = \{h: A \rightarrow B\}, \epsilon > 0$
+A set of hash functions mapping from domain D to range R is said to be
+universal if Equation \ref{eqn:universal-hashing} holds when the function h is drawn
+randomly from H. Informally, the collision probability for a hash function is
+exactly the probability of two random strings colliding ($\frac{1}{|R|}$).
+
 \begin{equation}
- Pr[h(M) = h(M')] \leq \epsilon\ \forall M \neq M' \in A,\forall h \in H
-\label{eqn:e-universal}
+Pr_{h \in H}[h(x) = h(y)] = \frac{1}{|R|}\ \forall x \neq y \in D
+\label{eqn:universal-hashing}
 \end{equation}
- %TODO Explain why we picked UH? Do it here?
 
- %TODO Look up the combinatorial property of universal hashing
+In practice, and in this paper, a weaker definition is instead used,
+$\epsilon$-almost universal, defined for the set set of h by Equation
+\ref{eqn:almost-universal}. Here
+the collision probability is bounded by some small fixed constant
+($\frac{1}{|R|} < \epsilon < 1$). This concept of $\epsilon$-AU is essential
+for providing the security bounds for the algorithm (if we have a high
+probability of a collision then our MAC will not be secure).
+
+\begin{equation}
+Pr_{h \in H}[h(x) = h(y)] = \epsilon\ \forall x \neq y \in D
+\label{eqn:almost-universal}
+\end{equation}
+
+%An even stronger notion is also introduced, pairwise independence, which is
+%shown in Equation \ref{eqn:strongly-universal}. In other words, all hash
+%functions in the set operate completely indepedently of the message being
+%hashed. A set of functions that meets this requirement is said to be strongly
+%universal, and the corresponding weaker definition of $\epsilon$-almost
+%strongly universal for a probability ($\frac{\epsilon}{|R|})$.
+%
+%\begin{equation}
+%Pr_{h \in H} [h(x) = a, h(y) = b] = \frac{1}{|R|^2} \forall x \neq y \in D,
+%\forall a,b \in R
+%\label{eqn:strongly-universal}
+%\end{equation}
 
  %TODO Talk about how fast UH means a strong encryption can be chosen for
  %encrypt step.
+\section{MAC construction using universal hashing}
+The Wegman-Carter paradigm for a universal hash based MAC is as follows:
 
- In the paper, the universal hashing family of choice is known as NH hashing.
- It is a simplification of the NMH and MMH families
- %TODO Lookup these and talk about them
- The principal of NH is described in Equation \ref{eqn:nh}
-\begin{equation} \label{eqn:nh}
-NH_k(m) = \left( \sum^{l/2}_{i=1} \left( \left( \left( m_{2i-1} + k_{2i-1}
-\right)\ mod\ 2^w
-\right) \cdot \left( \left( m_{2i} + k_{2i} \right)\ mod\ 2^w \right) \right)
-\right) mod\ 2^{2w}
+Assumed two parties have agreed a hash function(h) from the family of hash
+functions(H)  and have shared a set of one time pads $d_1,d_2,\cdots,d_n$. To
+authenticate the message $m_i$ we compute $h(m_i)+d_i$.
+
+If $h$ is drawn from an $\epsilon$-almost-strongly universal hash family, the
+probability of a computationally unbounded adversary breaking the encryption
+is at most $\epsilon$. In practice, the one time pad is substituted for a
+pseudo random function (PRF) which weakens the scheme to the probability that
+the PRF can be broken plus $\epsilon$.
+
+\section{Existing hash families}
+
+\paragraph{MMH}
+
+The MMH hash function was first defined in \emph{MMH: Software message
+authentication in the Gbit/second rates}\cite{mmh} and defines a hash function
+in finite fields over a prime $p$, and any integer $k > 0$ such that:
+\begin{equation}
+MMH = \{g_x : Z^k_p \rightarrow Z_p | x \in Z^k_p\}
+\end{equation}
+\begin{equation} \label{eqn:mmh}
+g_x(m) = m \cdot x\ mod\ p = \displaystyle\sum^k_{i=1} m_i \cdot x_i\ mod\ p
 \end{equation}
 
-The algorithm defines a word size ($w$), usually 16 or 32 bits to exploit fast
+Given a $k$-block message where each $m_i$ is a member of the finite field
+$Z_p$. To compute the hash we multiply each block by its corresponding key and
+return the sum mod $p$. The function used for the UMAC algorithm is a variation
+on this MMH hash family called NH.
+
+\paragraph{NH}
+
+The NH hash family is defined in Equation \ref{eqn:nh}. We specify a word size ($w$), usually 16 or 32 bits to exploit fast
 modulo operations in hardware. We then represent the message M as an even
-number of $w-bit$ blocks.
-,$M = (m_1,\cdots,m_l)$ where $m_i \in {0,\cdots,2^w-1}$, we also have a key,
+number of $w$-bit blocks. ($M = (m_1,\cdots,m_l)$ where $m_i \in
+{0,\cdots,2^w-1}$). We also have a key,
 $k$ with length $n
 \geq l$. In essence, for each pair of blocks in M, both blocks are added to
 the corresponding key (the answers are returned modulo the maximum word value)
@@ -127,20 +173,113 @@ then multiplied together. The result of this is then summed for each pair of
 blocks and the result is returned modulo the maximum word size squared. This
 means each hash is at most $2w$ bits long. 
 
-The MMH family is similar by uses finite fields over a prime, $p$, and any
-integer $k > 0$, such that for any 
-\begin{equation} \label{eqn:mmh}
-MMH = {g_x : Z^k_p \rightarrow Z_p | x \in Z^k_p}\\
-g_x(m) = m \cdot x\ mod\ p\
-\end{equation}.
+\begin{equation} \label{eqn:nh}
+NH_k(m) = \left( \sum^{l/2}_{i=1} \left( \left( \left( m_{2i-1} + k_{2i-1}
+\right)\ mod\ 2^w
+\right) \cdot \left( \left( m_{2i} + k_{2i} \right)\ mod\ 2^w \right) \right)
+\right) mod\ 2^{2w}
+\end{equation}
+\paragraph{NH Collision Bound}
 
-\section{UMAC}
+The paper then goes on to prove that the collision bound for NH is $2^{-w}$.
+This is accomplished by showing that, assuming the messages differ in one
+block, there is at most \emph{one} key from the set of all keys that causes a
+collision.
+
+\paragraph{Toeplitz extension}
+
+The paper also discusses methods to reduce this collision probability further
+(from $2^{-w}$ to $2^{-2w}$ for example). This was accomplished using the
+Toeplitz-extension ( a more efficient method that extending the word size or
+concatenating multiple hashes).
+
+The principal is that the key is extended so that you can take a series of
+overlapping keys, for example $K_1 = k_1,k_2,\cdots,k_n$ and $K_2 =
+k_3,k_4,\cdots,k_{n+2}$. This means that the key need only be extended by a
+number of blocks equal to twice the number of additional hashes you will be using
+(Each one decreases by collision probability by $2^{-w}$).
+
+Interesting, despite the fact that keys are related, the paper proves that the
+collision probability still drops to its desired level. Here it is proven that
+the probability that one of these key shifts collides given that all the other
+key shifts collide is at most $2^-w$, i.e. the fact a collision has occured
+does not increase the likelihood of future collisions. Intuitively, this is
+shown by fixing all bits of the key except for the new bits (the ones that have
+been shifted into use). Then using the same technique that we used to prove the
+collision bound of NH, we show there is at most one key from these new key
+blocks that will cause a collision.
+
+\paragraph{Padding}
+
+A significant drawback for the NH scheme is that it can only operation on
+strings that we an even number of $w$-bit words long. It is therefore necessary
+to incorporate a method pf padding such that it can be used for any length
+strings. Fortunately this modification is not complicated and takes the
+following form:
+\begin{enumerate}
+\item Divide the message into a sequence of blocks Msg =
+$Msg_1||Msg_2||\cdots||Msg_t$ such that all blocks have length in bits =
+blocksize($n$) except for $Msg_t$ which is shorter.
+\item Assign Len = $|Msg|\ mod\ a$ (the length of the final block)
+\item Pad $Msg_t$ with zeros until its $|Msg_t| = 0\ mod 2w$
+\item Return $h(Msg_1)||\cdots||h(Msg_t)||Len$
+\end{enumerate}
+
+The length is appended to the end of the message to ensure that messages that
+are not equal length will not collide because the \emph{Len} will always be different.
+
+\section{Converting NH to a MAC}
+
+NH by itself is not secure, due to its construction using arithmetic it is
+trivial to find K. This can be done by the following:
+\begin{enumerate}
+\item Set $M = m_1||m_2$ for some random $m_1,m_2$
+\item Get $H(M) = m_1m_2 + m_1k_2 + m_2k_1 + k_1k_2$
+\item Set $M' = m_1+1||m_2$
+\item Get $H(M') = (m_1+1)m_2 + (m_1+1)k_2 + m_2k_1 + k_1k_2$
+\item Compute $C = H(M) - H(M') = m_2 + k_2$ from which $m_2$ is known
+\item $k_2 = C - m_2$ or $k_2 = C - m_2 + 2^w$ (if $k_2 + m_2 > 2^w)$
+\end{enumerate}
+
+This process can be repeated to recover the entire key. (Although $k_2$ is
+sufficient to produce forgeries using $m_i' = m_i+1$ by adding $m_2+k_2$ to the
+hash of the message containing $m_i$).
+
+It is therefore necessary to do something to the output so that this attack is
+not possible. This is accomplished by performing an additional step on the
+output of NH using a pseudo random function (PRF). This step involves passing
+the output and a nonce (some random string) through the PRF and using this as
+the tag. The scheme is then given below:
+
+Key Generation: Select a pseudo random function ($f$) at random from a family of
+pseudo random functions ($F$). Select a hash function ($h$) at random from our family
+of NH hash functions ($H$)\\
+TAG : Given message (M) and a Nonce (randomly generated string, can be a simple
+counter) output $f(h(m)||Nonce)$
+
+The PRF stops the output of our MAC scheme from being linearly related to our
+message which is essential for a secure scheme. The security of this step is
+linearly related to the security of our scheme as a whole. The paper proves
+that the security of our MAC scheme is $\epsilon + \delta$ where $\epsilon$ is
+the collision probability of our hash and $\delta$ is the probability that an
+adversary can break the PRF (distinguish between the output of the function and
+a truly random function).
+
+The nonce is necessary to prevent a birthday attack against the system.
+Without this then after making $2^{-\frac{w}{2}}$ queries we would have a 50\%
+chance of finding a collision and therefore a forgery for our scheme. However,
+with the nonce these attacks are not possible because we cannot reuse the same
+nonce under the same key (verifier will reject the message).
+
+\subsection{UMAC}
 
 The UMAC protocol requires a pseudo-random generation (PRG), a shared secret
 key and the ability to generate a nonce (can be a simple counter i.e. the
-sender must be stateful).
+sender must be stateful). The paper details a special case of UMAC, shown in figure
+(something here) and a detailed explaining with reference to this example is
+given below.
 
-\subsection{Key generation}
+\paragraph{Key generation}
 
 The construction of the NH family requires a key that is at least as long as
 the message, since sharing a key like this would be impractical for large
@@ -151,19 +290,80 @@ An additional key $A$ is also generated for $|A|=512$ to be used to key the
 SHA1 used in Step %TODO
 
 This key generation is likely expensive and therefore the two keys are only
-generated at the start of the sesion then reused.
+generated at the start of the session then reused.
 
-\subsection{Hashing}
+\paragraph{Hashing}
 The generating of the Tag takes place is two steps, hashing and tagging. The
 hash step works as follows
 \begin{itemize}
-\item Let Len be $|Msg|$ mod 4096
-\item Pad $Msg$ with 0 bits such that $|Msg|\ mod\ 8 \equiv 0$
-\item Let $Msg=Msg_1||Msg_2||\cdots||Msg_t$ where $|Msg|$ is 1024 words (except
+\item Let Len be $|Msg|$ mod 4096*
+\item Pad $Msg$ with 0 bits such that $|Msg|\ mod\ 8* \equiv 0$
+\item Let $Msg=Msg_1||Msg_2||\cdots||Msg_t$ where $|Msg_i|$ is 1024 words (except
 for $Msg_t$)
 \item $HM = NH_K(Msg_1)||NH_K(Msg_2)||\cdots||NH_K(Msg_t)||Len$
 \end{itemize}
+*Although not explicit mentioned in the paper, we assume the the 4096 and 8
+here refer to the length in bytes rather than in bits. This then means that Len
+is the length of the final message in bytes. The padding will then also ensure
+there are an even number of 32 bit words when doing the final $NK_K$ for block
+$MSG_t$.
+
 The NH function is used in a way that is similar to that of a block cipher.
 With each ``block'' of HM independent of the blocks on either side. 
 
+
+\section{Closing thoughts}
+
+The UMAC scheme is interesting in that the hash scheme exists more as a means
+of achieving secure compression instead of computing the tag itself. This
+compression allows a secure function to be used on the output to generate the
+tag efficiently (since the output of the NH family is small).
+
+The collision probability of the NH family is not based upon any cryptographic
+primitives which means that the security of the scheme is not reliant on any
+assumptions that may later be proved false. In practise, the PRF used will be
+based on certain assumptions which, if invalidated, may necessitate the use of
+a different function during implementation.
+
+The flexibility of the scheme is particularly interesting, the variability of
+the word size and the possibility of the extensions using Toeplitz construction
+allows the security and performance of the scheme to be traded off in a way
+that is easy to understand. This increases the usability of the scheme by
+catering for different security needs, the paper itself also implementations of
+some of these variations which aides deployment. In the future works they discuss the opportunity
+for a single MAC that can be verified at increasing strengths. This is
+particularly interesting, however, lack of further research into this area
+suggests that it may not have been as simple as the paper implied.
+
+However, despite this significant performance advantages there are a few major
+drawbacks to the system. The first is the advantage that the scheme uses a
+different scheme to actually produce the final output is advantageous in that
+it allows flexibility but it adds an additional layer of complexity to
+implementation. The UMAC scheme does not only need to be implemented but so does
+whatever implementation is used for the PRF (and the PRG for the key
+generation). Although the paper provided specifications for different security
+thresholds which do simplify this process somewhat.
+
+The first is that the size of the key needed is
+significant, at least as long as the block size for each message plus a key
+required for the PRF. The authors
+dismiss this claiming that this key generation is only required once, however
+that is only true for extended sessions whereby information is exchanged using
+the same key. In practise, for shorter sessions the cost of generation will
+likely offset any performance gains that may be achieved.
+
+Secondly, the scheme is stateful, requiring that a nonce is tracked by the
+server which is never reused. This complicates the process and means that guard
+must be in place to prevent this nonce from being attacked through side channels.
+
+Finally, the question becomes whether the advancements that have been made in
+processing reduce the cost of performing a MAC to the point that increases in
+the speed of this process (even those as significant as UMCA) become
+unnecessary.
+
+Ultimately, given the lack of widespread adoption 14 years on from the
+publication of the paper, we must conclude that the added complexity of the
+implementation is not justified by the increase in speed.
+\bibliographystyle{plain}
+\bibliography{crypto_summary}
 \end{document}
